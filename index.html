@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Go Game vs AI</title>
+    <style>
+        body { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        canvas { 
+            border: 2px solid #333; 
+            background-color: #deb887;
+            touch-action: none;
+        }
+        select, button { 
+            margin: 10px; 
+            padding: 10px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #status {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 10px;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0; top: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: #fff;
+            padding: 20px;
+            max-width: 500px;
+            width: 90%;
+            border-radius: 8px;
+            text-align: left;
+            position: relative;
+        }
+        .modal-content h2 { margin-top: 0; }
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>Go Game vs AI</h1>
+    <div class="controls">
+        <select id="boardsize">
+            <option value="9" selected>9x9</option>
+            <option value="13">13x13</option>
+            <option value="19">19x19</option>
+        </select>
+        <select id="difficulty">
+            <option value="Easy">Easy</option>
+            <option value="Medium" selected>Medium</option>
+            <option value="Hard">Hard</option>
+        </select>
+        <button id="start">New Game</button>
+        <button id="pass">Pass</button>
+        <button id="score">Show Score</button>
+        <button id="howtoplay">How to Play</button>
+    </div>
+    <canvas id="board"></canvas>
+    <div id="status"></div>
+
+    <!-- Modal -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2>How to Play Go</h2>
+            <p>Go is a strategic board game for two players. The goal is to control more territory than your opponent.</p>
+            <ul>
+                <li>Players take turns placing stones on intersections.</li>
+                <li>Black goes first, then White.</li>
+                <li>Stones cannot move once placed.</li>
+                <li>A stone or group is captured if it has no liberties (empty adjacent intersections).</li>
+                <li>The game ends when both players pass consecutively.</li>
+                <li>Score is the sum of stones and territory. White receives komi points for balance.</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        var canvas = document.getElementById('board');
+        var ctx = canvas.getContext('2d');
+        var size;
+        var cell;
+        var board;
+        var turn = 1; // 1 = black (human), 2 = white (AI)
+        var human = 1;
+        var ai = 2;
+        var previousBoard = null;
+        var passes = 0;
+        var difficulty = 'Medium';
+        var status = document.getElementById('status');
+
+        function setCanvasSize() {
+            var w = Math.min(window.innerWidth - 40, window.innerHeight - 200) * 0.95;
+            cell = w / (size + 1);
+            canvas.width = w;
+            canvas.height = w;
+        }
+
+        function drawBoard() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            for (let i = 1; i <= size; i++) {
+                ctx.beginPath();
+                ctx.moveTo(cell * i, cell * 0.5);
+                ctx.lineTo(cell * i, cell * (size + 0.5));
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(cell * 0.5, cell * i);
+                ctx.lineTo(cell * (size + 0.5), cell * i);
+                ctx.stroke();
+            }
+            for (let x = 0; x < size; x++) {
+                for (let y = 0; y < size; y++) {
+                    if (board[x][y] === 1) {
+                        ctx.fillStyle = 'black';
+                        ctx.beginPath();
+                        ctx.arc(cell * (x + 1), cell * (y + 1), cell * 0.4, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.strokeStyle = '#333';
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+                    } else if (board[x][y] === 2) {
+                        ctx.fillStyle = 'white';
+                        ctx.beginPath();
+                        ctx.arc(cell * (x + 1), cell * (y + 1), cell * 0.4, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.strokeStyle = '#333';
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+                    }
+                }
+            }
+            status.textContent = (turn === human ? 'Your turn (Black)' : 'AI thinking... (White)');
+        }
+
+        function getPos(e) {
+            var rect = canvas.getBoundingClientRect();
+            var scaleX = canvas.width / rect.width;
+            var scaleY = canvas.height / rect.height;
+            return {
+                x: Math.round((e.clientX - rect.left) * scaleX / cell) - 1,
+                y: Math.round((e.clientY - rect.top) * scaleY / cell) - 1
+            };
+        }
+
+        canvas.addEventListener('click', function(e) {
+            if (turn !== human) return;
+            var pos = getPos(e);
+            if (pos.x >= 0 && pos.x < size && pos.y >= 0 && pos.y < size) {
+                playMove(pos.x, pos.y);
+            }
+        });
+
+        canvas.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            if (turn !== human) return;
+            var touch = e.touches[0];
+            var pos = getPos(touch);
+            if (pos.x >= 0 && pos.x < size && pos.y >= 0 && pos.y < size) {
+                playMove(pos.x, pos.y);
+            }
+        });
+
+        function copyBoard(b) { return b.map(row => row.slice()); }
+        function isSameBoard(b1,b2){ for(let x=0;x<size;x++){for(let y=0;y<size;y++){if(b1[x][y]!==b2[x][y])return false;}} return true; }
+        function getGroup(x,y,visited,color){ var stack=[[x,y]]; var group=[]; visited[x][y]=true; while(stack.length){ let [cx,cy]=stack.pop(); group.push([cx,cy]); [[0,1],[0,-1],[1,0],[-1,0]].forEach(d=>{ let nx=cx+d[0],ny=cy+d[1]; if(nx>=0 && nx<size && ny>=0 && ny<size && !visited[nx][ny] && board[nx][ny]===color){ visited[nx][ny]=true; stack.push([nx,ny]); } }); } return group; }
+        function getLiberties(group){ var libs=new Set(); group.forEach(([x,y])=>{ [[0,1],[0,-1],[1,0],[-1,0]].forEach(d=>{ let nx=x+d[0],ny=y+d[1]; if(nx>=0 && nx<size && ny>=0 && ny<size && board[nx][ny]===0){ libs.add(nx+','+ny); } }); }); return libs.size; }
+        function capture(color){ var opponent=3-color; var visited=Array(size).fill().map(()=>Array(size).fill(false)); var captured=0; for(let x=0;x<size;x++){for(let y=0;y<size;y++){if(board[x][y]===opponent && !visited[x][y]){ let group=getGroup(x,y,visited,opponent); if(getLiberties(group)===0){ group.forEach(([gx,gy])=>{board[gx][gy]=0; captured++;}); } } } } return captured; }
+        function isLegal(x,y,color){ if(x<0||x>=size||y<0||y>=size||board[x][y]!==0)return false; let tempBoard=copyBoard(board); board[x][y]=color; capture(color); let isKo=previousBoard && isSameBoard(previousBoard,board); let visited=Array(size).fill().map(()=>Array(size).fill(false)); let group=getGroup(x,y,visited,color); let libs=getLiberties(group); board=tempBoard; return !isKo && libs>0; }
+        function wouldCapture(x,y,color){ let temp=board[x][y]; board[x][y]=color; let captures=0; var opponent=3-color; var visited=Array(size).fill().map(()=>Array(size).fill(false)); for(let ix=0;ix<size;ix++){for(let iy=0;iy<size;iy++){ if(board[ix][iy]===opponent && !visited[ix][iy]){ let group=getGroup(ix,iy,visited,opponent); if(getLiberties(group)===0){ captures+=group.length; } } } } board[x][y]=temp; return captures; }
+        function playMove(x,y){ if(!isLegal(x,y,human)) return; previousBoard=copyBoard(board); board[x][y]=human; capture(human); passes=0; drawBoard(); turn=ai; setTimeout(aiMove,200); }
+        function passTurn(){ passes++; turn=3-turn; status.textContent=(turn===human?'Your turn (Black)':'AI thinking... (White)'); if(passes>=2){ endGame(); }else{ if(turn===ai)setTimeout(aiMove,200); } }
+        document.getElementById('pass').addEventListener('click', passTurn);
+        function endGame(){ let s=calculateScore(); let winner=s.black>s.white?'Black (You) win!':s.white>s.black?'White (AI) wins!':'Draw!'; alert(`Game Over!\nBlack: ${s.black.toFixed(1)}\nWhite: ${s.white.toFixed(1)} (komi 6.5)\n\n${winner}`); }
+        function calculateScore(){ var visited=Array(size).fill().map(()=>Array(size).fill(false)); let blackTerr=0,whiteTerr=0; for(let x=0;x<size;x++){for(let y=0;y<size;y++){ if(board[x][y]===0 && !visited[x][y]){ let [terr,borderBlack,borderWhite]=getEmptyGroup(x,y,visited); if(borderBlack&&!borderWhite) blackTerr+=terr; else if(borderWhite&&!borderBlack) whiteTerr+=terr; } } } let blackStones=0,whiteStones=0; for(let x=0;x<size;x++){for(let y=0;y<size;y++){ if(board[x][y]===1) blackStones++; if(board[x][y]===2) whiteStones++; } } let blackScore=blackTerr+blackStones; let whiteScore=whiteTerr+whiteStones+6.5; return {black:blackScore,white:whiteScore}; }
+        function getEmptyGroup(x,y,visited){ let groupSize=0,borderBlack=false,borderWhite=false; let stack=[[x,y]]; visited[x][y]=true; while(stack.length){ let [cx,cy]=stack.pop(); groupSize++; [[0,1],[0,-1],[1,0],[-1,0]].forEach(d=>{ let nx=cx+d[0],ny=cy+d[1]; if(nx>=0 && nx<size && ny>=0 && ny<size){ if(board[nx][ny]===0 && !visited[nx][ny]){ visited[nx][ny]=true; stack.push([nx,ny]); } else if(board[nx][ny]===1) borderBlack=true; else if(board[nx][ny]===2) borderWhite=true; } }); } return [groupSize,borderBlack,borderWhite]; }
+        function shuffle(array){ for(let i=array.length-1;i>0;i--){ const j=Math.floor(Math.random() * (i+1)); [array[i],array[j]]=[array[j],array[i]]; } return array; }
+        function getLegalMoves(color){ let moves=[]; for(let x=0;x<size;x++){for(let y=0;y<size;y++){ if(isLegal(x,y,color)) moves.push([x,y]); } } return moves; }
+        function evaluateBoard(color){ let score=0; let opponent=3-color; for(let x=0;x<size;x++){for(let y=0;y<size;y++){ if(board[x][y]===color) score+=1; if(board[x][y]===opponent) score-=1; } } var visited=Array(size).fill().map(()=>Array(size).fill(false)); for(let x=0;x<size;x++){for(let y=0;y<size;y++){ if(board[x][y]===color && !visited[x][y]){ let group=getGroup(x,y,visited,color); score+=getLiberties(group)*0.5; } } } var visited2=Array(size).fill().map(()=>Array(size).fill(false)); for(let x=0;x<size;x++){for(let y=0;y<size;y++){ if(board[x][y]===opponent && !visited2[x][y]){ let group=getGroup(x,y,visited2,opponent); score-=getLiberties(group)*0.5; } } } return score; }
+        function aiMove(){ let color=ai; let moves=getLegalMoves(color); if(moves.length===0){ passTurn(); return; } let move; if(difficulty==='Easy'){ move=moves[Math.floor(Math.random()*moves.length)]; } else if(difficulty==='Medium'){ let maxCapture=-1; let bestMoves=[]; moves.forEach(m=>{ let caps=wouldCapture(m[0],m[1],color); if(caps>maxCapture){ maxCapture=caps; bestMoves=[m]; } else if(caps===maxCapture){ bestMoves.push(m); } }); move=bestMoves[Math.floor(Math.random()*bestMoves.length)]; } else if(difficulty==='Hard'){ shuffle(moves); let numEval=size<=9?moves.length:size<=13?80:40; let toEval=moves.slice(0,Math.min(numEval,moves.length)); let bestScore=-Infinity; let bestMoves=[]; toEval.forEach(m=>{ let tempBoard=copyBoard(board); board[m[0]][m[1]]=color; capture(color); let score=evaluateBoard(color); board=tempBoard; if(score>bestScore){ bestScore=score; bestMoves=[m]; } else if(score===bestScore){ bestMoves.push(m); } }); move=bestMoves[Math.floor(Math.random()*bestMoves.length)]; } previousBoard=copyBoard(board); board[move[0]][move[1]]=color; capture(color); passes=0; drawBoard(); turn=human; }
+        function startGame(){ size=parseInt(document.getElementById('boardsize').value); board=Array(size).fill().map(()=>Array(size).fill(0)); turn=1; passes=0; previousBoard=null; difficulty=document.getElementById('difficulty').value; resizeBoard(); if(turn===ai) aiMove(); }
+        function resizeBoard(){ setCanvasSize(); drawBoard(); }
+        document.getElementById('boardsize').addEventListener('change',function(){}); 
+        document.getElementById('difficulty').addEventListener('change',function(e){ difficulty=e.target.value; });
+        document.getElementById('start').addEventListener('click',startGame);
+        window.addEventListener('resize',resizeBoard);
+        document.getElementById('score').addEventListener('click',function(){ let s=calculateScore(); alert(`Estimated current score:\nBlack: ${s.black.toFixed(1)}\nWhite: ${s.white.toFixed(1)} (komi 6.5 included)`); });
+
+        // Modal functionality
+        var modal = document.getElementById('modal');
+        var btn = document.getElementById('howtoplay');
+        var closeBtn = modal.querySelector('.close-btn');
+        btn.onclick = ()=>{ modal.style.display='flex'; }
+        closeBtn.onclick = ()=>{ modal.style.display='none'; }
+        window.onclick = (e)=>{ if(e.target===modal) modal.style.display='none'; }
+
+        startGame();
+    </script>
+</body>
+</html>
