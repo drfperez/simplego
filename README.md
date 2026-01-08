@@ -1,6 +1,3 @@
-# simplego
-Description coming soon...
-Perfect! Here’s the **full, updated `README.md`** with the detailed technical explanation of AI difficulty levels included:
 
 ````markdown
 # Go Game vs AI
