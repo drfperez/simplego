@@ -147,12 +147,7 @@ The AI has three difficulty levels, each using increasingly complex logic to cho
 
 ## Installation
 
-1. Clone the repository:
-
-```bash
-git clone https://github.com/yourusername/go-game-ai.git
-````
-
+1. Clone the repository
 2. Open `index.html` in your browser.
 3. Start playing!
 
