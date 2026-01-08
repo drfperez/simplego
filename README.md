@@ -166,13 +166,4 @@ This project is **open-source** and free to use.
 
 ---
 
-
-
-```
-
----
-
-If you want, I can also **add a “Live Demo” section** and **GitHub badges** to make it more visually appealing and professional on your repo page.  
-
-Do you want me to do that next?
 ```
