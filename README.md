@@ -88,23 +88,6 @@ The AI has three difficulty levels, each using increasingly complex logic to cho
 
 ---
 
-## Installation
-
-1. Clone the repository:
-
-```bash
-git clone https://github.com/yourusername/go-game-ai.git
-2. Click **New Game** to start.
-3. **Black (You)** always plays first.
-4. Click or tap intersections to place stones.
-5. Stones cannot move once placed.
-6. **Capture stones** by surrounding your opponent's group.
-7. Use **Pass** when no moves are desired.
-8. Game ends when both players pass consecutively.
-9. Click **Show Score** to see the current score estimation.
-
----
-
 ## Controls
 
 | Button          | Description                            |
