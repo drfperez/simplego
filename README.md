@@ -1,164 +1,64 @@
-# Go Game vs AI
+# Simple Go (Baduk / Weiqi)
 
-A simple **Go board game** implemented in **HTML, CSS, and JavaScript** where you can play against an AI. The game supports **9x9, 13x13, and 19x19 boards**, multiple difficulty levels, and is **mobile-first responsive**.  
+A lightweight, high-performance **Go game** implementation built with HTML5 Canvas and Vanilla JavaScript. This project features a strategic AI, support for multiple board sizes, and a built-in scoring engine.
+
+
 
 ---
 
-## Features
+## 🎮 Game Rules
 
-- **Human vs AI** gameplay.
-- Board sizes: **9x9**, **13x13**, **19x19**.
-- AI difficulty levels: **Easy**, **Medium**, **Hard**.
-- **Stone placement** with legal move checks, capture rules, and Ko rule enforcement.
-- **Score calculation** including territory and komi.
-- **Pass and show score** functionality.
-- **Mobile-friendly**, fully responsive canvas.
-- **"How to Play" modal** for beginners.
+Go is an abstract strategy board game for two players. The primary goal is to use your stones to form territories by surrounding vacant areas of the board.
 
----
+### 1. The Basics
+* **Players:** Black moves first, followed by White.
+* **Placement:** Stones are placed on the **intersections** (points) of the grid lines.
+* **Movement:** Once placed, stones are stationary unless they are captured.
 
-## How to Play
+### 2. Capture & Liberties
+* **Liberties:** These are the empty adjacent intersections (horizontal and vertical) around a stone or a connected group.
+* **Capture:** When a stone or group is completely surrounded by opponent stones and has **zero liberties**, it is captured and removed from the board.
 
-1. **Choose board size** and **difficulty**.
-2. Click **New Game** to start.
-3. **Black (You)** always plays first.
-4. Click or tap intersections to place stones.
-5. Stones cannot move once placed.
-6. **Capture stones** by surrounding your opponent's group.
-7. Use **Pass** when no moves are desired.
-8. Game ends when both players pass consecutively.
-9. Click **Show Score** to see the current score estimation.
 
----
 
-## Controls
+### 3. Special Rules
+* **Suicide Rule:** You cannot place a stone where it would immediately have no liberties, unless that move captures an opponent's group.
+* **Ko Rule:** To prevent infinite loops, you cannot make a move that returns the board to the exact state it was in on your previous turn.
+* **Komi:** White receives **+7.5 points** at the end of the game to compensate for Black's first-move advantage.
 
-| Button          | Description                            |
-|-----------------|----------------------------------------|
-| New Game        | Starts a new game                       |
-| Pass            | Pass your turn                          |
-| Show Score      | Displays the current score             |
-| How to Play     | Opens a modal with Go rules            |
+### 4. Game End & Scoring
+* **Ending:** The game ends when both players **Pass** consecutively.
+* **Scoring:** This app uses **Area Scoring** (Chinese Style):
+  $$Score = \text{Stones on Board} + \text{Surrounded Empty Points}$$
 
 ---
 
-## AI Difficulty Levels
+## 🤖 AI Logic (Heuristics)
 
-The AI has three difficulty levels, each using increasingly complex logic to choose its moves:
+The "Hard" difficulty utilizes a weighted heuristic engine to evaluate potential moves without a heavy tree search.
 
-### **Easy**
-- **Behavior:** Chooses **random legal moves** from all available intersections.
-- **Strategy:** No evaluation of captures, liberties, or board position.  
-- **Result:** Unpredictable but weak; good for beginners.
-
-### **Medium**
-- **Behavior:** Evaluates moves based on **potential captures**.  
-- **Algorithm:**
-  1. For each legal move, calculate how many opponent stones would be captured.
-  2. Keep a list of moves with the **maximum captures**.
-  3. Randomly select one move from the best candidates.
-- **Strategy:** Prioritizes immediate captures, but does not plan multiple turns ahead.  
-- **Result:** Moderate challenge for casual players.
-
-### **Hard**
-- **Behavior:** Uses a **heuristic board evaluation** to maximize long-term advantage.
-- **Algorithm:**
-  1. Generate a set of legal moves (limited for larger boards to avoid slow computation).
-  2. For each move:
-     - Simulate the move temporarily.
-     - Capture opponent stones.
-     - Evaluate board score using a heuristic:
-       - Stones owned by AI: +1 point each.
-       - Stones owned by opponent: -1 point each.
-       - Liberties (empty adjacent points) of AI groups: +0.5 points per liberty.
-       - Liberties of opponent groups: -0.5 points per liberty.
-  3. Restore the board and select the move with the **highest evaluated score**.  
-  4. If multiple moves tie, pick one randomly.
-- **Strategy:** Considers both immediate captures and board control (territory and liberties).  
-- **Result:** Strong challenge, mimics strategic thinking without full minimax search.
+### Scoring Factors:
+| Factor | Weight | Description |
+| :--- | :--- | :--- |
+| **Capture Value** | +15 per stone | Prioritizes moves that immediately remove opponent stones. |
+| **Atari Avoidance** | -50 | Penalizes moves that leave the AI's own group with only 1 liberty. |
+| **Positional Bias** | +5 | Early game preference for the 3rd and 4th lines (Star points). |
+| **Edge Penalty** | -3 | Discourages playing on the 1st line during the opening phase. |
 
 ---
 
-## Technologies
+## ✨ Features
 
-- **HTML5** — Structure of the board and UI.
-- **CSS3** — Styling and responsive design.
-- **JavaScript** — Game logic, AI, stone placement, captures, scoring.
-- **Canvas API** — Drawing the board and stones.
-
----
-
-## Controls
-
-| Button          | Description                            |
-|-----------------|----------------------------------------|
-| New Game        | Starts a new game                       |
-| Pass            | Pass your turn                          |
-| Show Score      | Displays the current score             |
-| How to Play     | Opens a modal with Go rules            |
+* **Adjustable Board Sizes:** 9x9, 13x13, or 19x19.
+* **Three AI Levels:** From random play to strategic positioning.
+* **Interactive Scoring:** Mark "dead" stones manually before finalizing the score.
+* **Responsive UI:** Fully optimized for mobile touch and desktop clicks.
 
 ---
 
-## AI Difficulty Levels
+## 🛠️ Installation & Usage
 
-The AI has three difficulty levels, each using increasingly complex logic to choose its moves:
-
-### **Easy**
-- **Behavior:** Chooses **random legal moves** from all available intersections.
-- **Strategy:** No evaluation of captures, liberties, or board position.  
-- **Result:** Unpredictable but weak; good for beginners.
-
-### **Medium**
-- **Behavior:** Evaluates moves based on **potential captures**.  
-- **Algorithm:**
-  1. For each legal move, calculate how many opponent stones would be captured.
-  2. Keep a list of moves with the **maximum captures**.
-  3. Randomly select one move from the best candidates.
-- **Strategy:** Prioritizes immediate captures, but does not plan multiple turns ahead.  
-- **Result:** Moderate challenge for casual players.
-
-### **Hard**
-- **Behavior:** Uses a **heuristic board evaluation** to maximize long-term advantage.
-- **Algorithm:**
-  1. Generate a set of legal moves (limited for larger boards to avoid slow computation).
-  2. For each move:
-     - Simulate the move temporarily.
-     - Capture opponent stones.
-     - Evaluate board score using a heuristic:
-       - Stones owned by AI: +1 point each.
-       - Stones owned by opponent: -1 point each.
-       - Liberties (empty adjacent points) of AI groups: +0.5 points per liberty.
-       - Liberties of opponent groups: -0.5 points per liberty.
-  3. Restore the board and select the move with the **highest evaluated score**.  
-  4. If multiple moves tie, pick one randomly.
-- **Strategy:** Considers both immediate captures and board control (territory and liberties).  
-- **Result:** Strong challenge, mimics strategic thinking without full minimax search.
-
----
-
-## Technologies
-
-- **HTML5** — Structure of the board and UI.
-- **CSS3** — Styling and responsive design.
-- **JavaScript** — Game logic, AI, stone placement, captures, scoring.
-- **Canvas API** — Drawing the board and stones.
-
----
-
-## Installation
-
-1. Clone the repository
-2. Open `index.html` in your browser.
-3. Start playing!
-
----
-
-
-
-## License
-
-This project is **open-source** and free to use.
-
----
-
-```
+1. **Clone the repository:**
+   ```bash
+   git clone [https://github.com/yourusername/simple-go.git](https://github.com/yourusername/simple-go.git)
+   
