@@ -1,242 +1,801 @@
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Go Game vs AI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Master Go (Baduk/Weiqi)</title>
     <style>
-        body { 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f0f0f0;
+        :root {
+            --wood-color: #e6c288;
+            --wood-border: #8d6e63;
+            --stone-black: #111;
+            --stone-white: #f5f5f5;
+            --highlight: rgba(255, 0, 0, 0.5);
         }
-        canvas { 
-            border: 2px solid #333; 
-            background-color: #deb887;
-            touch-action: none;
-        }
-        select, button { 
-            margin: 10px; 
-            padding: 10px;
-            font-size: 16px;
-        }
-        button {
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
-        #status {
-            font-size: 18px;
-            font-weight: bold;
-            margin: 10px;
-        }
-        .controls {
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 10px;
+            overscroll-behavior: none; /* Prevent pull-to-refresh on mobile */
+        }
+
+        h1 { margin: 10px 0; font-size: 1.5rem; color: #2c3e50; }
+
+        /* Game Board Container */
+        .game-area {
+            position: relative;
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             gap: 10px;
         }
 
-        /* Modal styles */
+        canvas {
+            background-color: var(--wood-color);
+            border: 2px solid var(--wood-border);
+            cursor: pointer;
+            touch-action: none; /* Critical for mobile touch handling */
+            box-shadow: 2px 2px 6px rgba(0,0,0,0.3);
+            border-radius: 2px;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: #e8eaed;
+            border-radius: 6px;
+            font-weight: bold;
+            box-sizing: border-box;
+        }
+        
+        .turn-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .dot {
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            border: 1px solid #999;
+        }
+        .dot.black { background: black; }
+        .dot.white { background: white; }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        select, button {
+            padding: 10px 14px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+            background: white;
+        }
+
+        button {
+            cursor: pointer;
+            font-weight: 600;
+            color: white;
+            transition: opacity 0.2s;
+            border: none;
+            flex: 1;
+            min-width: 80px;
+        }
+        
+        button:active { opacity: 0.8; }
+        button:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+
+        .btn-new { background-color: #27ae60; }
+        .btn-pass { background-color: #e67e22; }
+        .btn-score { background-color: #8e44ad; }
+        .btn-rules { background-color: #34495e; flex: 0 0 auto; }
+
+        /* Scoring Phase Banner */
+        #scoring-banner {
+            display: none;
+            width: 100%;
+            background-color: #ffeeba;
+            color: #856404;
+            padding: 10px;
+            text-align: center;
+            border-radius: 6px;
+            border: 1px solid #ffeeba;
+            font-size: 0.9rem;
+        }
+
+        /* Modal */
         .modal {
             display: none;
             position: fixed;
-            z-index: 100;
-            left: 0; top: 0;
+            top: 0; left: 0;
             width: 100%; height: 100%;
-            background-color: rgba(0,0,0,0.5);
+            background: rgba(0,0,0,0.6);
             justify-content: center;
             align-items: center;
+            z-index: 1000;
         }
         .modal-content {
-            background-color: #fff;
+            background: white;
             padding: 20px;
-            max-width: 500px;
-            width: 90%;
             border-radius: 8px;
-            text-align: left;
-            position: relative;
+            max-width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            width: 400px;
+            line-height: 1.6;
         }
-        .modal-content h2 { margin-top: 0; }
-        .close-btn {
-            position: absolute;
-            top: 10px;
-            right: 15px;
-            font-size: 24px;
-            font-weight: bold;
-            cursor: pointer;
-            color: #333;
-        }
+        .close { float: right; font-size: 24px; cursor: pointer; }
+
     </style>
 </head>
 <body>
-    <h1>Go Game vs AI</h1>
-    <div class="controls">
-        <select id="boardsize">
-            <option value="9" selected>9x9</option>
-            <option value="13">13x13</option>
-            <option value="19">19x19</option>
-        </select>
-        <select id="difficulty">
-            <option value="Easy">Easy</option>
-            <option value="Medium" selected>Medium</option>
-            <option value="Hard">Hard</option>
-        </select>
-        <button id="start">New Game</button>
-        <button id="pass">Pass</button>
-        <button id="score">Show Score</button>
-        <button id="howtoplay">How to Play</button>
-    </div>
-    <canvas id="board"></canvas>
-    <div id="status"></div>
 
-    <!-- Modal -->
-    <div id="modal" class="modal">
+    <h1>Master Go</h1>
+
+    <div class="game-area">
+        <div class="status-bar">
+            <div class="turn-indicator">
+                <div id="turn-dot" class="dot black"></div>
+                <span id="status-text">Black's Turn</span>
+            </div>
+            <div id="captures">B: 0 | W: 0</div>
+        </div>
+
+        <div id="scoring-banner">
+            <strong>Scoring Phase:</strong> Click dead stones to remove them. When done, click "Calculate Score".
+        </div>
+
+        <canvas id="board"></canvas>
+
+        <div class="controls" id="play-controls">
+            <select id="board-size">
+                <option value="9">9x9</option>
+                <option value="13">13x13</option>
+                <option value="19">19x19</option>
+            </select>
+            <select id="difficulty">
+                <option value="1">Easy (Random)</option>
+                <option value="2">Medium (Aggressive)</option>
+                <option value="3">Hard (Strategic)</option>
+            </select>
+            <button class="btn-new" onclick="initGame()">New Game</button>
+            <button class="btn-pass" onclick="handlePass()">Pass</button>
+            <button class="btn-rules" onclick="toggleModal(true)">?</button>
+        </div>
+
+        <div class="controls" id="score-controls" style="display:none;">
+            <button class="btn-score" onclick="calculateScore()">Calculate Score</button>
+        </div>
+    </div>
+
+    <div id="rules-modal" class="modal">
         <div class="modal-content">
-            <span class="close-btn">&times;</span>
-            <h2>How to Play Go</h2>
-            <p>Go is a strategic board game for two players. The goal is to control more territory than your opponent.</p>
+            <span class="close" onclick="toggleModal(false)">&times;</span>
+            <h2>How to Play</h2>
+            <p><strong>Objective:</strong> Surround more territory than your opponent.</p>
             <ul>
-                <li>Players take turns placing stones on intersections.</li>
-                <li>Black goes first, then White.</li>
-                <li>Stones cannot move once placed.</li>
-                <li>A stone or group is captured if it has no liberties (empty adjacent intersections).</li>
-                <li>The game ends when both players pass consecutively.</li>
-                <li>Score is the sum of stones and territory. White receives komi points for balance.</li>
+                <li><strong>Turns:</strong> Black plays first. Place stones on intersections.</li>
+                <li><strong>Capture:</strong> Stones are captured when they have no "liberties" (empty adjacent points).</li>
+                <li><strong>Ko Rule:</strong> You cannot repeat the exact previous board state.</li>
+                <li><strong>Ending:</strong> The game ends when both players PASS consecutively.</li>
+                <li><strong>Scoring:</strong>
+                    <ol>
+                        <li>Pass twice to enter Scoring Mode.</li>
+                        <li>Click on <strong>Dead Stones</strong> (stones that cannot live) to remove them.</li>
+                        <li>Click "Calculate Score" to see the winner.</li>
+                    </ol>
+                </li>
             </ul>
         </div>
     </div>
 
     <script>
-        var canvas = document.getElementById('board');
-        var ctx = canvas.getContext('2d');
-        var size;
-        var cell;
-        var board;
-        var turn = 1; // 1 = black (human), 2 = white (AI)
-        var human = 1;
-        var ai = 2;
-        var previousBoard = null;
-        var passes = 0;
-        var difficulty = 'Medium';
-        var status = document.getElementById('status');
+        /** * GO GAME ENGINE 
+         * Single file implementation with AI, Canvas UI, and Scoring
+         */
 
-        function setCanvasSize() {
-            var w = Math.min(window.innerWidth - 40, window.innerHeight - 200) * 0.95;
-            cell = w / (size + 1);
-            canvas.width = w;
-            canvas.height = w;
+        const canvas = document.getElementById('board');
+        const ctx = canvas.getContext('2d');
+        const statusText = document.getElementById('status-text');
+        const turnDot = document.getElementById('turn-dot');
+        const playControls = document.getElementById('play-controls');
+        const scoreControls = document.getElementById('score-controls');
+        const scoringBanner = document.getElementById('scoring-banner');
+
+        // Game Constants
+        const BLACK = 1;
+        const WHITE = 2;
+        const EMPTY = 0;
+        const KOMI = 7.5; // Standard compensation for White
+
+        // State Variables
+        let size = 9;
+        let board = [];
+        let turn = BLACK;
+        let prisoners = { [BLACK]: 0, [WHITE]: 0 }; // Prisoners captured BY this color
+        let history = []; // For Ko rule
+        let passes = 0;
+        let gameState = 'PLAYING'; // PLAYING, SCORING, OVER
+        let cellParams = { size: 0, padding: 0 };
+        let isAiThinking = false;
+
+        // --- INITIALIZATION ---
+
+        function initGame() {
+            size = parseInt(document.getElementById('board-size').value);
+            board = Array.from({ length: size }, () => Array(size).fill(EMPTY));
+            turn = BLACK;
+            prisoners = { [BLACK]: 0, [WHITE]: 0 };
+            history = [];
+            passes = 0;
+            gameState = 'PLAYING';
+            isAiThinking = false;
+
+            // UI Reset
+            playControls.style.display = 'flex';
+            scoreControls.style.display = 'none';
+            scoringBanner.style.display = 'none';
+            updateStatus("Black's Turn (You)");
+            
+            resizeCanvas();
+            drawBoard();
+        }
+
+        // --- GRAPHICS ---
+
+        function resizeCanvas() {
+            const containerWidth = Math.min(window.innerWidth - 30, 600); // Responsive width
+            canvas.width = containerWidth;
+            canvas.height = containerWidth; // Square board
+
+            const padding = containerWidth * 0.05; // 5% padding
+            const cellSize = (containerWidth - 2 * padding) / (size - 1);
+            
+            cellParams = { size: cellSize, padding: padding };
+            drawBoard();
         }
 
         function drawBoard() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.strokeStyle = '#333';
+            // Clear & Wood Background
+            ctx.fillStyle = '#e6c288';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Grid
+            ctx.strokeStyle = '#5d4037';
             ctx.lineWidth = 1;
-            for (let i = 1; i <= size; i++) {
-                ctx.beginPath();
-                ctx.moveTo(cell * i, cell * 0.5);
-                ctx.lineTo(cell * i, cell * (size + 0.5));
-                ctx.stroke();
-                ctx.beginPath();
-                ctx.moveTo(cell * 0.5, cell * i);
-                ctx.lineTo(cell * (size + 0.5), cell * i);
-                ctx.stroke();
+            ctx.beginPath();
+            const { size: cs, padding: p } = cellParams;
+
+            for (let i = 0; i < size; i++) {
+                // Vertical
+                ctx.moveTo(p + i * cs, p);
+                ctx.lineTo(p + i * cs, p + (size - 1) * cs);
+                // Horizontal
+                ctx.moveTo(p, p + i * cs);
+                ctx.lineTo(p + (size - 1) * cs, p + i * cs);
             }
-            for (let x = 0; x < size; x++) {
-                for (let y = 0; y < size; y++) {
-                    if (board[x][y] === 1) {
-                        ctx.fillStyle = 'black';
-                        ctx.beginPath();
-                        ctx.arc(cell * (x + 1), cell * (y + 1), cell * 0.4, 0, Math.PI * 2);
-                        ctx.fill();
-                        ctx.strokeStyle = '#333';
-                        ctx.lineWidth = 1;
-                        ctx.stroke();
-                    } else if (board[x][y] === 2) {
-                        ctx.fillStyle = 'white';
-                        ctx.beginPath();
-                        ctx.arc(cell * (x + 1), cell * (y + 1), cell * 0.4, 0, Math.PI * 2);
-                        ctx.fill();
-                        ctx.strokeStyle = '#333';
-                        ctx.lineWidth = 1;
-                        ctx.stroke();
+            ctx.stroke();
+
+            // Draw Star Points (Hoshi)
+            drawStarPoints(cs, p);
+
+            // Draw Stones
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    if (board[y][x] !== EMPTY) {
+                        drawStone(x, y, board[y][x], cs, p);
                     }
                 }
             }
-            status.textContent = (turn === human ? 'Your turn (Black)' : 'AI thinking... (White)');
+
+            // Draw Last Move Marker
+            if (history.length > 0 && gameState === 'PLAYING') {
+                const lastBoard = history[history.length - 1];
+                // Simple diff to find last move (optimization: store last move coord)
+                // For simplicity, we won't draw the marker here to keep code concise,
+                // but usually you'd draw a small circle on the last placed stone.
+            }
         }
 
-        function getPos(e) {
-            var rect = canvas.getBoundingClientRect();
-            var scaleX = canvas.width / rect.width;
-            var scaleY = canvas.height / rect.height;
-            return {
-                x: Math.round((e.clientX - rect.left) * scaleX / cell) - 1,
-                y: Math.round((e.clientY - rect.top) * scaleY / cell) - 1
-            };
+        function drawStarPoints(cs, p) {
+            let points = [];
+            if (size === 9) points = [2, 6];
+            else if (size === 13) points = [3, 9, 6];
+            else if (size === 19) points = [3, 9, 15];
+
+            ctx.fillStyle = '#5d4037';
+            points.forEach(x => {
+                points.forEach(y => {
+                    ctx.beginPath();
+                    ctx.arc(p + x * cs, p + y * cs, cs * 0.15, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            });
         }
 
-        canvas.addEventListener('click', function(e) {
-            if (turn !== human) return;
-            var pos = getPos(e);
-            if (pos.x >= 0 && pos.x < size && pos.y >= 0 && pos.y < size) {
-                playMove(pos.x, pos.y);
+        function drawStone(x, y, color, cs, p) {
+            const cx = p + x * cs;
+            const cy = p + y * cs;
+            const radius = cs * 0.48;
+
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            
+            // Gradient for 3D look
+            const grad = ctx.createRadialGradient(cx - radius/3, cy - radius/3, radius/5, cx, cy, radius);
+            if (color === BLACK) {
+                grad.addColorStop(0, '#555');
+                grad.addColorStop(1, '#000');
+            } else {
+                grad.addColorStop(0, '#fff');
+                grad.addColorStop(1, '#ddd');
             }
-        });
+            ctx.fillStyle = grad;
+            ctx.fill();
 
-        canvas.addEventListener('touchstart', function(e) {
-            e.preventDefault();
-            if (turn !== human) return;
-            var touch = e.touches[0];
-            var pos = getPos(touch);
-            if (pos.x >= 0 && pos.x < size && pos.y >= 0 && pos.y < size) {
-                playMove(pos.x, pos.y);
+            if (color === WHITE) {
+                ctx.strokeStyle = '#ccc';
+                ctx.stroke();
             }
-        });
+        }
 
-        function copyBoard(b) { return b.map(row => row.slice()); }
-        function isSameBoard(b1,b2){ for(let x=0;x<size;x++){for(let y=0;y<size;y++){if(b1[x][y]!==b2[x][y])return false;}} return true; }
-        function getGroup(x,y,visited,color){ var stack=[[x,y]]; var group=[]; visited[x][y]=true; while(stack.length){ let [cx,cy]=stack.pop(); group.push([cx,cy]); [[0,1],[0,-1],[1,0],[-1,0]].forEach(d=>{ let nx=cx+d[0],ny=cy+d[1]; if(nx>=0 && nx<size && ny>=0 && ny<size && !visited[nx][ny] && board[nx][ny]===color){ visited[nx][ny]=true; stack.push([nx,ny]); } }); } return group; }
-        function getLiberties(group){ var libs=new Set(); group.forEach(([x,y])=>{ [[0,1],[0,-1],[1,0],[-1,0]].forEach(d=>{ let nx=x+d[0],ny=y+d[1]; if(nx>=0 && nx<size && ny>=0 && ny<size && board[nx][ny]===0){ libs.add(nx+','+ny); } }); }); return libs.size; }
-        function capture(color){ var opponent=3-color; var visited=Array(size).fill().map(()=>Array(size).fill(false)); var captured=0; for(let x=0;x<size;x++){for(let y=0;y<size;y++){if(board[x][y]===opponent && !visited[x][y]){ let group=getGroup(x,y,visited,opponent); if(getLiberties(group)===0){ group.forEach(([gx,gy])=>{board[gx][gy]=0; captured++;}); } } } } return captured; }
-        function isLegal(x,y,color){ if(x<0||x>=size||y<0||y>=size||board[x][y]!==0)return false; let tempBoard=copyBoard(board); board[x][y]=color; capture(color); let isKo=previousBoard && isSameBoard(previousBoard,board); let visited=Array(size).fill().map(()=>Array(size).fill(false)); let group=getGroup(x,y,visited,color); let libs=getLiberties(group); board=tempBoard; return !isKo && libs>0; }
-        function wouldCapture(x,y,color){ let temp=board[x][y]; board[x][y]=color; let captures=0; var opponent=3-color; var visited=Array(size).fill().map(()=>Array(size).fill(false)); for(let ix=0;ix<size;ix++){for(let iy=0;iy<size;iy++){ if(board[ix][iy]===opponent && !visited[ix][iy]){ let group=getGroup(ix,iy,visited,opponent); if(getLiberties(group)===0){ captures+=group.length; } } } } board[x][y]=temp; return captures; }
-        function playMove(x,y){ if(!isLegal(x,y,human)) return; previousBoard=copyBoard(board); board[x][y]=human; capture(human); passes=0; drawBoard(); turn=ai; setTimeout(aiMove,200); }
-        function passTurn(){ passes++; turn=3-turn; status.textContent=(turn===human?'Your turn (Black)':'AI thinking... (White)'); if(passes>=2){ endGame(); }else{ if(turn===ai)setTimeout(aiMove,200); } }
-        document.getElementById('pass').addEventListener('click', passTurn);
-        function endGame(){ let s=calculateScore(); let winner=s.black>s.white?'Black (You) win!':s.white>s.black?'White (AI) wins!':'Draw!'; alert(`Game Over!\nBlack: ${s.black.toFixed(1)}\nWhite: ${s.white.toFixed(1)} (komi 6.5)\n\n${winner}`); }
-        function calculateScore(){ var visited=Array(size).fill().map(()=>Array(size).fill(false)); let blackTerr=0,whiteTerr=0; for(let x=0;x<size;x++){for(let y=0;y<size;y++){ if(board[x][y]===0 && !visited[x][y]){ let [terr,borderBlack,borderWhite]=getEmptyGroup(x,y,visited); if(borderBlack&&!borderWhite) blackTerr+=terr; else if(borderWhite&&!borderBlack) whiteTerr+=terr; } } } let blackStones=0,whiteStones=0; for(let x=0;x<size;x++){for(let y=0;y<size;y++){ if(board[x][y]===1) blackStones++; if(board[x][y]===2) whiteStones++; } } let blackScore=blackTerr+blackStones; let whiteScore=whiteTerr+whiteStones+6.5; return {black:blackScore,white:whiteScore}; }
-        function getEmptyGroup(x,y,visited){ let groupSize=0,borderBlack=false,borderWhite=false; let stack=[[x,y]]; visited[x][y]=true; while(stack.length){ let [cx,cy]=stack.pop(); groupSize++; [[0,1],[0,-1],[1,0],[-1,0]].forEach(d=>{ let nx=cx+d[0],ny=cy+d[1]; if(nx>=0 && nx<size && ny>=0 && ny<size){ if(board[nx][ny]===0 && !visited[nx][ny]){ visited[nx][ny]=true; stack.push([nx,ny]); } else if(board[nx][ny]===1) borderBlack=true; else if(board[nx][ny]===2) borderWhite=true; } }); } return [groupSize,borderBlack,borderWhite]; }
-        function shuffle(array){ for(let i=array.length-1;i>0;i--){ const j=Math.floor(Math.random() * (i+1)); [array[i],array[j]]=[array[j],array[i]]; } return array; }
-        function getLegalMoves(color){ let moves=[]; for(let x=0;x<size;x++){for(let y=0;y<size;y++){ if(isLegal(x,y,color)) moves.push([x,y]); } } return moves; }
-        function evaluateBoard(color){ let score=0; let opponent=3-color; for(let x=0;x<size;x++){for(let y=0;y<size;y++){ if(board[x][y]===color) score+=1; if(board[x][y]===opponent) score-=1; } } var visited=Array(size).fill().map(()=>Array(size).fill(false)); for(let x=0;x<size;x++){for(let y=0;y<size;y++){ if(board[x][y]===color && !visited[x][y]){ let group=getGroup(x,y,visited,color); score+=getLiberties(group)*0.5; } } } var visited2=Array(size).fill().map(()=>Array(size).fill(false)); for(let x=0;x<size;x++){for(let y=0;y<size;y++){ if(board[x][y]===opponent && !visited2[x][y]){ let group=getGroup(x,y,visited2,opponent); score-=getLiberties(group)*0.5; } } } return score; }
-        function aiMove(){ let color=ai; let moves=getLegalMoves(color); if(moves.length===0){ passTurn(); return; } let move; if(difficulty==='Easy'){ move=moves[Math.floor(Math.random()*moves.length)]; } else if(difficulty==='Medium'){ let maxCapture=-1; let bestMoves=[]; moves.forEach(m=>{ let caps=wouldCapture(m[0],m[1],color); if(caps>maxCapture){ maxCapture=caps; bestMoves=[m]; } else if(caps===maxCapture){ bestMoves.push(m); } }); move=bestMoves[Math.floor(Math.random()*bestMoves.length)]; } else if(difficulty==='Hard'){ shuffle(moves); let numEval=size<=9?moves.length:size<=13?80:40; let toEval=moves.slice(0,Math.min(numEval,moves.length)); let bestScore=-Infinity; let bestMoves=[]; toEval.forEach(m=>{ let tempBoard=copyBoard(board); board[m[0]][m[1]]=color; capture(color); let score=evaluateBoard(color); board=tempBoard; if(score>bestScore){ bestScore=score; bestMoves=[m]; } else if(score===bestScore){ bestMoves.push(m); } }); move=bestMoves[Math.floor(Math.random()*bestMoves.length)]; } previousBoard=copyBoard(board); board[move[0]][move[1]]=color; capture(color); passes=0; drawBoard(); turn=human; }
-        function startGame(){ size=parseInt(document.getElementById('boardsize').value); board=Array(size).fill().map(()=>Array(size).fill(0)); turn=1; passes=0; previousBoard=null; difficulty=document.getElementById('difficulty').value; resizeBoard(); if(turn===ai) aiMove(); }
-        function resizeBoard(){ setCanvasSize(); drawBoard(); }
-        document.getElementById('boardsize').addEventListener('change',function(){}); 
-        document.getElementById('difficulty').addEventListener('change',function(e){ difficulty=e.target.value; });
-        document.getElementById('start').addEventListener('click',startGame);
-        window.addEventListener('resize',resizeBoard);
-        document.getElementById('score').addEventListener('click',function(){ let s=calculateScore(); alert(`Estimated current score:\nBlack: ${s.black.toFixed(1)}\nWhite: ${s.white.toFixed(1)} (komi 6.5 included)`); });
+        // --- LOGIC ---
 
-        // Modal functionality
-        var modal = document.getElementById('modal');
-        var btn = document.getElementById('howtoplay');
-        var closeBtn = modal.querySelector('.close-btn');
-        btn.onclick = ()=>{ modal.style.display='flex'; }
-        closeBtn.onclick = ()=>{ modal.style.display='none'; }
-        window.onclick = (e)=>{ if(e.target===modal) modal.style.display='none'; }
+        function getGroup(b, x, y, color) {
+            let group = [];
+            let visited = new Set();
+            let stack = [[x, y]];
+            
+            while(stack.length) {
+                let [cx, cy] = stack.pop();
+                let key = `${cx},${cy}`;
+                if(visited.has(key)) continue;
+                visited.add(key);
+                group.push({x: cx, y: cy});
 
-        startGame();
+                [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dx, dy]) => {
+                    let nx = cx+dx, ny = cy+dy;
+                    if(nx >= 0 && nx < size && ny >= 0 && ny < size) {
+                        if(b[ny][nx] === color) stack.push([nx, ny]);
+                    }
+                });
+            }
+            return group;
+        }
+
+        function countLiberties(b, group) {
+            let liberties = new Set();
+            group.forEach(stone => {
+                [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dx, dy]) => {
+                    let nx = stone.x+dx, ny = stone.y+dy;
+                    if(nx >= 0 && nx < size && ny >= 0 && ny < size) {
+                        if(b[ny][nx] === EMPTY) liberties.add(`${nx},${ny}`);
+                    }
+                });
+            });
+            return liberties.size;
+        }
+
+        function getCaptures(b, x, y, color) {
+            const opponent = 3 - color;
+            let capturedStones = [];
+            [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dx, dy]) => {
+                let nx = x+dx, ny = y+dy;
+                if(nx >= 0 && nx < size && ny >= 0 && ny < size) {
+                    if(b[ny][nx] === opponent) {
+                        const group = getGroup(b, nx, ny, opponent);
+                        if(countLiberties(b, group) === 0) {
+                            capturedStones.push(...group);
+                        }
+                    }
+                }
+            });
+            return capturedStones;
+        }
+
+        function isValidMove(x, y, color, isCheck = false) {
+            if (x < 0 || x >= size || y < 0 || y >= size) return false;
+            if (board[y][x] !== EMPTY) return false;
+
+            // Try move
+            let nextBoard = board.map(r => [...r]);
+            nextBoard[y][x] = color;
+
+            // 1. Check if it captures opponent
+            const captures = getCaptures(nextBoard, x, y, color);
+            
+            // Remove captured stones for subsequent checks
+            captures.forEach(s => nextBoard[s.y][s.x] = EMPTY);
+
+            // 2. Suicide Check: If no captures, must have liberties
+            if (captures.length === 0) {
+                const group = getGroup(nextBoard, x, y, color);
+                if (countLiberties(nextBoard, group) === 0) return false;
+            }
+
+            // 3. Ko Check
+            if (!isCheck && isKo(nextBoard)) return false;
+
+            return true;
+        }
+
+        function isKo(nextBoard) {
+            if (history.length === 0) return false;
+            // Only compare with immediate previous state is standard simple ko
+            // Full situational superko checks entire history, but simple ko is usually sufficient for casual
+            // Here we check if board repeats the state from 2 moves ago (standard Ko)
+            if (history.length < 2) return false;
+            const prev = history[history.length - 1]; // This is actually the state BEFORE current move
+            // We need to check against the state resulting from the *previous* player's move.
+            // Simplified: don't allow board to look exactly like it did at start of turn.
+            
+            // To properly implement Ko: Check if nextBoard matches history[history.length-1] (the state we just left? No).
+            // Ko happens when we return to the state of history[history.length-1]? No.
+            // Standard Ko: Current board cannot equal board at history[history.length-1].
+            
+            // Correct Simple Ko: Compare nextBoard with history[history.length-1] is wrong.
+            // We compare with the board state BEFORE the opponent played.
+            // Just comparing hash is better, but array compare works for small boards.
+            
+            // Let's use a simplified "Superko" check against *all* history to be safe and lazy.
+            for(let h of history) {
+                if(boardsMatch(h, nextBoard)) return true;
+            }
+            return false;
+        }
+
+        function boardsMatch(b1, b2) {
+            for(let y=0; y<size; y++) {
+                for(let x=0; x<size; x++) {
+                    if(b1[y][x] !== b2[y][x]) return false;
+                }
+            }
+            return true;
+        }
+
+        function makeMove(x, y) {
+            if (gameState !== 'PLAYING') return;
+
+            // Save history
+            history.push(board.map(r => [...r]));
+            if(history.length > 20) history.shift(); // Memory trim
+
+            board[y][x] = turn;
+            
+            // Process Captures
+            const captures = getCaptures(board, x, y, turn);
+            captures.forEach(s => {
+                board[s.y][s.x] = EMPTY;
+                prisoners[turn]++;
+            });
+
+            passes = 0;
+            drawBoard();
+            updateCaptures();
+
+            // Next Turn
+            turn = 3 - turn;
+            updateStatus();
+
+            if (turn === WHITE && gameState === 'PLAYING') {
+                isAiThinking = true;
+                setTimeout(aiTurn, 100);
+            }
+        }
+
+        function handlePass(isAi = false) {
+            if (gameState !== 'PLAYING') return;
+            
+            passes++;
+            if (passes >= 2) {
+                enterScoringPhase();
+                return;
+            }
+
+            turn = 3 - turn;
+            updateStatus();
+            
+            if (!isAi && turn === WHITE) {
+                isAiThinking = true;
+                setTimeout(aiTurn, 500);
+            }
+        }
+
+        // --- AI LOGIC ---
+
+        function aiTurn() {
+            const difficulty = parseInt(document.getElementById('difficulty').value);
+            let move = null;
+            
+            if (difficulty === 1) move = getAiMoveEasy();
+            else if (difficulty === 2) move = getAiMoveMedium();
+            else move = getAiMoveHard();
+
+            isAiThinking = false;
+
+            if (move) {
+                makeMove(move.x, move.y);
+            } else {
+                handlePass(true);
+            }
+        }
+
+        function getAllLegalMoves(color) {
+            let moves = [];
+            for(let y=0; y<size; y++) {
+                for(let x=0; x<size; x++) {
+                    if(isValidMove(x, y, color, true)) {
+                        // Filter out filling own eyes (basic logic for all AIs)
+                        if(!isEye(x, y, color)) {
+                            moves.push({x, y});
+                        }
+                    }
+                }
+            }
+            return moves;
+        }
+
+        function isEye(x, y, color) {
+            // Very simple eye check: all 4 neighbors are same color
+            // (Doesn't account for diagonals/false eyes, but good enough to prevent stupidity)
+            const neighbors = [[0,1],[0,-1],[1,0],[-1,0]];
+            for(let [dx, dy] of neighbors) {
+                let nx = x+dx, ny = y+dy;
+                if(nx>=0 && nx<size && ny>=0 && ny<size) {
+                    if(board[ny][nx] !== color) return false;
+                }
+            }
+            return true;
+        }
+
+        // LEVEL 1: Random
+        function getAiMoveEasy() {
+            const moves = getAllLegalMoves(WHITE);
+            if(moves.length === 0) return null;
+            return moves[Math.floor(Math.random() * moves.length)];
+        }
+
+        // LEVEL 2: Aggressive / Greedy
+        function getAiMoveMedium() {
+            const moves = getAllLegalMoves(WHITE);
+            if(moves.length === 0) return null;
+
+            // Prioritize moves that capture
+            for(let m of moves) {
+                let testBoard = board.map(r => [...r]);
+                testBoard[m.y][m.x] = WHITE;
+                if(getCaptures(testBoard, m.x, m.y, WHITE).length > 0) return m;
+            }
+
+            // Otherwise random
+            return moves[Math.floor(Math.random() * moves.length)];
+        }
+
+        // LEVEL 3: Positional Heuristics
+        function getAiMoveHard() {
+            const moves = getAllLegalMoves(WHITE);
+            if(moves.length === 0) return null;
+
+            let bestScore = -Infinity;
+            let bestMove = null;
+
+            moves.forEach(m => {
+                let score = 0;
+                
+                // 1. Capture Value (High priority)
+                let testBoard = board.map(r => [...r]);
+                testBoard[m.y][m.x] = WHITE;
+                const captures = getCaptures(testBoard, m.x, m.y, WHITE).length;
+                score += captures * 15;
+
+                // 2. Save Self (Avoid Atari)
+                // If this move leaves us with only 1 liberty, it's bad (unless it captures)
+                const group = getGroup(testBoard, m.x, m.y, WHITE);
+                const libs = countLiberties(testBoard, group);
+                if(libs === 1) score -= 50; 
+                if(libs === 2) score -= 5;
+                if(libs > 3) score += 2;
+
+                // 3. Positional (Center/Star points good in opening)
+                if(boardHistoryCount() < 20) {
+                    // Bias toward 3rd/4th line
+                    const dX = Math.min(m.x, size - 1 - m.x);
+                    const dY = Math.min(m.y, size - 1 - m.y);
+                    if((dX === 2 || dX === 3) && (dY === 2 || dY === 3)) score += 5;
+                    // Avoid edges early
+                    if(dX === 0 || dY === 0) score -= 3;
+                }
+
+                // 4. Random noise to prevent predictability
+                score += Math.random() * 2;
+
+                if(score > bestScore) {
+                    bestScore = score;
+                    bestMove = m;
+                }
+            });
+
+            // If best move is actually terrible (self-death), pass
+            if(bestScore < -40 && moves.length > 5) return null;
+
+            return bestMove;
+        }
+
+        function boardHistoryCount() {
+            return history.length;
+        }
+
+        // --- INTERACTION ---
+
+        canvas.addEventListener('mousedown', handleInput);
+        canvas.addEventListener('touchstart', handleTouch, {passive: false});
+
+        function handleTouch(e) {
+            e.preventDefault(); // Stop scrolling
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent("mousedown", {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            canvas.dispatchEvent(mouseEvent);
+        }
+
+        function handleInput(e) {
+            const rect = canvas.getBoundingClientRect();
+            const { size: cs, padding: p } = cellParams;
+            
+            const x = Math.round((e.clientX - rect.left - p) / cs);
+            const y = Math.round((e.clientY - rect.top - p) / cs);
+
+            if (x >= 0 && x < size && y >= 0 && y < size) {
+                if (gameState === 'PLAYING' && turn === BLACK && !isAiThinking) {
+                    if (isValidMove(x, y, BLACK)) {
+                        makeMove(x, y);
+                    }
+                } else if (gameState === 'SCORING') {
+                    toggleDeadStone(x, y);
+                }
+            }
+        }
+
+        // --- SCORING PHASE ---
+
+        function enterScoringPhase() {
+            gameState = 'SCORING';
+            playControls.style.display = 'none';
+            scoreControls.style.display = 'flex';
+            scoringBanner.style.display = 'block';
+            updateStatus("SCORING: Mark dead stones");
+            alert("Game Ended. Please click on any captured/dead stones to remove them before calculating the score.");
+        }
+
+        function toggleDeadStone(x, y) {
+            if (board[y][x] === EMPTY) return;
+            
+            // Remove the group connected to this stone
+            const color = board[y][x];
+            const group = getGroup(board, x, y, color);
+            
+            group.forEach(s => {
+                board[s.y][s.x] = EMPTY;
+            });
+            drawBoard();
+        }
+
+        function calculateScore() {
+            // Area Scoring (Chinese): Stones on Board + Territory
+            let blackScore = 0;
+            let whiteScore = KOMI; // Komi
+            
+            let visited = Array.from({ length: size }, () => Array(size).fill(false));
+
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    const color = board[y][x];
+                    if (color === BLACK) blackScore++;
+                    else if (color === WHITE) whiteScore++;
+                    else if (!visited[y][x]) {
+                        // Analyze territory
+                        const { owner, count } = analyzeTerritory(x, y, visited);
+                        if (owner === BLACK) blackScore += count;
+                        else if (owner === WHITE) whiteScore += count;
+                    }
+                }
+            }
+
+            let winner = blackScore > whiteScore ? "Black" : "White";
+            let diff = Math.abs(blackScore - whiteScore);
+            
+            alert(`FINAL SCORE:\nBlack: ${blackScore}\nWhite: ${whiteScore} (inc. ${KOMI} komi)\n\nWinner: ${winner} by ${diff} points!`);
+            
+            // Return to menu
+            initGame();
+        }
+
+        function analyzeTerritory(sx, sy, visited) {
+            let stack = [[sx, sy]];
+            let count = 0;
+            let touchesBlack = false;
+            let touchesWhite = false;
+            
+            while(stack.length) {
+                let [cx, cy] = stack.pop();
+                if(visited[cy][cx]) continue;
+                visited[cy][cx] = true;
+                count++;
+                
+                [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dx, dy]) => {
+                    let nx = cx+dx, ny = cy+dy;
+                    if(nx >= 0 && nx < size && ny >= 0 && ny < size) {
+                        let val = board[ny][nx];
+                        if (val === EMPTY && !visited[ny][nx]) {
+                            stack.push([nx, ny]);
+                        } else if (val === BLACK) {
+                            touchesBlack = true;
+                        } else if (val === WHITE) {
+                            touchesWhite = true;
+                        }
+                    }
+                });
+            }
+
+            let owner = null;
+            if (touchesBlack && !touchesWhite) owner = BLACK;
+            if (touchesWhite && !touchesBlack) owner = WHITE;
+            
+            return { owner, count };
+        }
+
+        // --- UTILS ---
+
+        function updateStatus(msg) {
+            if(msg) statusText.innerText = msg;
+            else statusText.innerText = turn === BLACK ? "Black's Turn" : "White's Turn";
+            
+            turnDot.className = `dot ${turn === BLACK ? 'black' : 'white'}`;
+        }
+
+        function updateCaptures() {
+            document.getElementById('captures').innerText = `B: ${prisoners[BLACK]} | W: ${prisoners[WHITE]}`;
+        }
+
+        function toggleModal(show) {
+            document.getElementById('rules-modal').style.display = show ? 'flex' : 'none';
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('rules-modal')) {
+                toggleModal(false);
+            }
+        }
+
+        // Start
+        initGame();
+
     </script>
 </body>
 </html>
